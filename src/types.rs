@@ -99,10 +99,10 @@ impl BType {
     }
     pub fn imm_s_ext(&self) -> i32 {
         let mut ret = 0u32;
-        ret |= ret & FB_IMM_12; 
-        ret |= (ret & FB_IMM_11) << 23;
-        ret |= (ret & FB_IMM_10_5) >> 1;
-        ret |= (ret & FB_IMM_4_1) << 12;
+        ret |= self.0 & FB_IMM_12;
+        ret |= (self.0 & FB_IMM_11) << 23;
+        ret |= (self.0 & FB_IMM_10_5) >> 1;
+        ret |= (self.0 & FB_IMM_4_1) << 12;
         ret as i32 >> 19
     }
     pub fn rs1(&self) -> u32 {
