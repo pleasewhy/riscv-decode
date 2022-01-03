@@ -40,11 +40,16 @@ impl CsrIType {
     }
 }
 
+const FI_IMM_11_0: u32 = 0b11111111111100000000000000000000; // i-type
+
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct IType(pub u32);
 impl IType {
     pub fn imm(&self) -> u32 {
         (self.0 >> 20)
+    }
+    pub fn imm_s_ext(&self) -> i32 {
+        ((self.0 & FI_IMM_11_0) as i32) >> 20
     }
     pub fn rs1(&self) -> u32 {
         (self.0 >> 15) & 0x1f
@@ -54,11 +59,20 @@ impl IType {
     }
 }
 
+const FS_IMM_4_0: u32 = 0b00000000000000000000111110000000; // s-type
+const FS_IMM_11_5: u32 = 0b11111110000000000000000000000000;
+
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct SType(pub u32);
 impl SType {
     pub fn imm(&self) -> u32 {
         ((self.0 >> 20) & 0xfe0) | ((self.0 >> 7) & 0x1f)
+    }
+    pub fn imm_s_ext(&self) -> i32 {
+        let mut ret = 0u32;
+        ret |= (self.0 & FS_IMM_11_5);
+        ret |= (self.0 & FS_IMM_4_0) << 13;
+        ret as i32 >> 20
     }
     pub fn rs1(&self) -> u32 {
         (self.0 >> 15) & 0x1f
@@ -68,6 +82,12 @@ impl SType {
     }
 }
 
+//                       ....xxxx....xxxx....xxxx....xxxx
+const FB_IMM_11: u32 = 0b00000000000000000000000010000000; // b-type
+const FB_IMM_4_1: u32 = 0b00000000000000000000111100000000;
+const FB_IMM_10_5: u32 = 0b01111110000000000000000000000000;
+const FB_IMM_12: u32 = 0b10000000000000000000000000000000;
+
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct BType(pub u32);
 impl BType {
@@ -76,6 +96,14 @@ impl BType {
             | ((self.0 & 0x7e00_0000) >> 20)
             | ((self.0 & 0x0000_0f00) >> 7)
             | ((self.0 & 0x0000_0080) << 4)
+    }
+    pub fn imm_s_ext(&self) -> i32 {
+        let mut ret = 0u32;
+        ret |= ret & FB_IMM_12; 
+        ret |= (ret & FB_IMM_11) << 23;
+        ret |= (ret & FB_IMM_10_5) >> 1;
+        ret |= (ret & FB_IMM_4_1) << 12;
+        ret as i32 >> 19
     }
     pub fn rs1(&self) -> u32 {
         (self.0 >> 15) & 0x1f
@@ -109,7 +137,6 @@ impl JType {
             | ((self.0 & 0x0010_0000) >> 9)
             | (self.0 & 0x000f_f000)
     }
-
     pub fn imm_s_ext(&self) -> i32 {
         let mut ret = 0u32;
         ret |= self.0 & FJ_IMM_20;
