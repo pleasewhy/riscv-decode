@@ -1,6 +1,17 @@
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct RType(pub u32);
 impl RType {
+    pub fn new(opcode: u32, rd: u32, rs1: u32, rs2: u32) -> Self {
+        assert!(rd < 32, "rd must less than 32");
+        assert!(rs1 < 32, "rs1 must less than 32");
+        assert!(rs2 < 32, "rs2 must less than 32");
+        let mut ret = 0u32;
+        ret |= opcode;
+        ret |= rd << 7;
+        ret |= rs1 << 15;
+        ret |= rs2 << 20;
+        Self(ret)
+    }
     pub fn rs2(&self) -> u32 {
         (self.0 >> 20) & 0x1f
     }
@@ -45,6 +56,16 @@ const FI_IMM_11_0: u32 = 0b11111111111100000000000000000000; // i-type
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct IType(pub u32);
 impl IType {
+    pub fn new(opcode: u32, rd: u32, rs1: u32, imm: u32) -> Self {
+        assert!(rd < 32, "rd must less th 32");
+        assert!(rs1 < 32);
+        let mut ret = 0;
+        ret |= opcode; // opcode
+        ret |= rd << 7; // rd
+        ret |= rs1 << 15; // rs1
+        ret |= imm << 20;
+        Self(ret)
+    }
     pub fn imm(&self) -> u32 {
         (self.0 >> 20)
     }
@@ -65,6 +86,15 @@ const FS_IMM_11_5: u32 = 0b11111110000000000000000000000000;
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct SType(pub u32);
 impl SType {
+    pub fn new(opcode: u32, rs1: u32, rs2: u32, imm: u32) -> Self {
+        let mut ret = 0u32;
+        ret |= opcode;
+        ret |= rs1 << 15;
+        ret |= rs2 << 20;
+        ret |= (imm & 0x1f) << 7; // imm[0:4] -> ret[7:11]
+        ret |= (imm & 0xfe0) << 20; // imm[5:11] -> ret[25:31]
+        Self(ret)
+    }
     pub fn imm(&self) -> u32 {
         ((self.0 >> 20) & 0xfe0) | ((self.0 >> 7) & 0x1f)
     }
@@ -91,6 +121,17 @@ const FB_IMM_12: u32 = 0b10000000000000000000000000000000;
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct BType(pub u32);
 impl BType {
+    pub fn new(opcode: u32, rs1: u32, rs2: u32, imm: u32) -> Self {
+        let mut ret = 0u32;
+        ret |= opcode;
+        ret |= rs1 << 15;
+        ret |= rs2 << 20;
+        ret |= (imm & 0x1e) << 7; // imm[1:4] -> ret[8:11]
+        ret |= (imm & 0x800) >> 4; // imm[11] -> ret[7]
+        ret |= (imm & 0x3f0) << 20; // imm[5:10] -> ret[25:30]
+        ret |= (imm & 0x1000) << 19; // imm[12] -> ret[31]
+        Self(ret)
+    }
     pub fn imm(&self) -> u32 {
         ((self.0 & 0x8000_0000) >> 19)
             | ((self.0 & 0x7e00_0000) >> 20)
@@ -116,6 +157,13 @@ impl BType {
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct UType(pub u32);
 impl UType {
+    pub fn new(opcode: u32, rd: u32, imm: u32) -> Self {
+        let mut ret = 0u32;
+        ret |= opcode;
+        ret |= rd << 7;
+        ret |= imm & 0xfffff000; // imm[12:31] -> ret[12:31]
+        Self(ret)
+    }
     pub fn imm(&self) -> u32 {
         self.0 & 0xfffff000
     }
@@ -131,6 +179,16 @@ const FJ_IMM_20: u32 = 0b10000000000000000000000000000000;
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct JType(pub u32);
 impl JType {
+    pub fn new(opcode: u32, rd: u32, imm: u32) -> Self {
+        let mut ret = 0u32;
+        ret |= opcode;
+        ret |= rd << 7;
+        ret |= imm & 0xff000; // imm[12:19] -> ret[12:19]
+        ret |= imm & 0x800 << 9; // imm[11] -> ret[20]
+        ret |= imm & 0x7fe << 20; // imm[1:10] -> ret[21:30]
+        ret |= imm & 0x100000 << 11; // imm[20] -> ret[31]
+        Self(ret)
+    }
     pub fn imm(&self) -> u32 {
         ((self.0 & 0x8000_0000) >> 11)
             | ((self.0 & 0x7fe0_0000) >> 20)

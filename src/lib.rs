@@ -1,7 +1,8 @@
-#![no_std]
+// #![no_std]
 
 mod compressed;
 mod instruction;
+mod consts;
 pub mod types;
 
 use types::*;
