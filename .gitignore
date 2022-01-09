@@ -5,3 +5,5 @@ Cargo.lock
 test
 test.S
 Makefile
+a.txt
+test.ld

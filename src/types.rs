@@ -1,12 +1,14 @@
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct RType(pub u32);
 impl RType {
-    pub fn new(opcode: u32, rd: u32, rs1: u32, rs2: u32) -> Self {
+    pub fn new(opcode: u32, func3: u32, func7: u32, rd: u32, rs1: u32, rs2: u32) -> Self {
         assert!(rd < 32, "rd must less than 32");
         assert!(rs1 < 32, "rs1 must less than 32");
         assert!(rs2 < 32, "rs2 must less than 32");
         let mut ret = 0u32;
         ret |= opcode;
+        ret |= func3 << 12;
+        ret |= func7 << 25;
         ret |= rd << 7;
         ret |= rs1 << 15;
         ret |= rs2 << 20;
@@ -56,11 +58,12 @@ const FI_IMM_11_0: u32 = 0b11111111111100000000000000000000; // i-type
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct IType(pub u32);
 impl IType {
-    pub fn new(opcode: u32, rd: u32, rs1: u32, imm: u32) -> Self {
+    pub fn new(opcode: u32, func3: u32, rd: u32, rs1: u32, imm: u32) -> Self {
         assert!(rd < 32, "rd must less th 32");
         assert!(rs1 < 32);
         let mut ret = 0;
         ret |= opcode; // opcode
+        ret |= func3 << 12;
         ret |= rd << 7; // rd
         ret |= rs1 << 15; // rs1
         ret |= imm << 20;
@@ -82,17 +85,17 @@ impl IType {
 
 const FS_IMM_4_0: u32 = 0b00000000000000000000111110000000; // s-type
 const FS_IMM_11_5: u32 = 0b11111110000000000000000000000000;
-
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct SType(pub u32);
 impl SType {
-    pub fn new(opcode: u32, rs1: u32, rs2: u32, imm: u32) -> Self {
+    pub fn new(opcode: u32, func3: u32, rs1: u32, rs2: u32, imm: u32) -> Self {
         let mut ret = 0u32;
         ret |= opcode;
+        ret |= func3 << 12;
         ret |= rs1 << 15;
         ret |= rs2 << 20;
-        ret |= (imm & 0x1f) << 7; // imm[0:4] -> ret[7:11]
-        ret |= (imm & 0xfe0) << 20; // imm[5:11] -> ret[25:31]
+        ret |= (imm & 0b11111) << 7; // imm[4:0] -> ret[11:7]
+        ret |= (imm & 0b111111100000) << 20; // imm[11:5] -> ret[31:25]
         Self(ret)
     }
     pub fn imm(&self) -> u32 {
@@ -121,15 +124,16 @@ const FB_IMM_12: u32 = 0b10000000000000000000000000000000;
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct BType(pub u32);
 impl BType {
-    pub fn new(opcode: u32, rs1: u32, rs2: u32, imm: u32) -> Self {
+    pub fn new(opcode: u32, func3: u32, rs1: u32, rs2: u32, imm: u32) -> Self {
         let mut ret = 0u32;
         ret |= opcode;
+        ret |= func3 << 12;
         ret |= rs1 << 15;
         ret |= rs2 << 20;
-        ret |= (imm & 0x1e) << 7; // imm[1:4] -> ret[8:11]
-        ret |= (imm & 0x800) >> 4; // imm[11] -> ret[7]
-        ret |= (imm & 0x3f0) << 20; // imm[5:10] -> ret[25:30]
-        ret |= (imm & 0x1000) << 19; // imm[12] -> ret[31]
+        ret |= (imm & 0b11110) << 7; // imm[4:1] -> ret[11:8]
+        ret |= (imm & 0b100000000000) >> 4; // imm[11] -> ret[7]
+        ret |= (imm & 0b11111100000) << 20; // imm[10:5] -> ret[30:25]
+        ret |= (imm & 0b1000000000000) << 19; // imm[12] -> ret[31]
         Self(ret)
     }
     pub fn imm(&self) -> u32 {
@@ -183,10 +187,10 @@ impl JType {
         let mut ret = 0u32;
         ret |= opcode;
         ret |= rd << 7;
-        ret |= imm & 0xff000; // imm[12:19] -> ret[12:19]
-        ret |= imm & 0x800 << 9; // imm[11] -> ret[20]
-        ret |= imm & 0x7fe << 20; // imm[1:10] -> ret[21:30]
-        ret |= imm & 0x100000 << 11; // imm[20] -> ret[31]
+        ret |= imm & 0b11111111000000000000; // imm[19:12] -> ret[19:12]
+        ret |= (imm & 0b100000000000) << 9; // imm[11] -> ret[20]
+        ret |= (imm & 0b11111111110) << 20; // imm[10:1] -> ret[30:21]
+        ret |= (imm & 0x100000) << 11; // imm[20] -> ret[31]
         Self(ret)
     }
     pub fn imm(&self) -> u32 {
@@ -222,6 +226,16 @@ impl FenceType {
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct ShiftType(pub u32);
 impl ShiftType {
+    pub fn new(opcode: u32, func3: u32, func6: u32, rs1: u32, rd: u32, shamt: u32) -> Self {
+        let mut ret = 0u32;
+        ret |= opcode;
+        ret |= func3 << 12;
+        ret |= func6 << 26;
+        ret |= (rd & 0x1f) << 7;
+        ret |= (rs1 & 0x1f) << 15;
+        ret |= (shamt & 0x3f) << 20;
+        Self(ret)
+    }
     pub fn shamt(&self) -> u32 {
         (self.0 >> 20) & 0x3f
     }
